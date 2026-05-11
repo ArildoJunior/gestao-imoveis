@@ -37,6 +37,8 @@
             padding-bottom: 3rem;
         }
     </style>
+
+    @stack('styles')
 </head>
 <body>
 
@@ -122,29 +124,51 @@
                             <i class="bi bi-grid me-1"></i> Mais
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark">
+
+                            {{-- Despesas --}}
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('despesas-imovel.*') ? 'active' : '' }}"
                                    href="{{ route('despesas-imovel.index') }}">
                                     <i class="bi bi-receipt me-1"></i> Despesas
                                 </a>
                             </li>
+
+                            <li><hr class="dropdown-divider"></li>
+
+                            {{-- Submenu Relatórios --}}
                             <li>
-                                <a class="dropdown-item {{ request()->routeIs('relatorios.*') ? 'active' : '' }}"
-                                   href="{{ route('relatorios.imovel') }}">
+                                <span class="dropdown-item-text text-secondary small px-3">
                                     <i class="bi bi-bar-chart-line me-1"></i> Relatórios
+                                </span>
+                            </li>
+                            <li>
+                                <a class="dropdown-item ps-4 {{ request()->routeIs('relatorios.imovel') ? 'active' : '' }}"
+                                   href="{{ route('relatorios.imovel') }}">
+                                    <i class="bi bi-house-gear me-1"></i> Rel. Financeiro por Imóvel
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item ps-4 {{ request()->routeIs('relatorios.inadimplencia') ? 'active' : '' }}"
+                                   href="{{ route('relatorios.inadimplencia') }}">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Rel. Inadimplência
+                                </a>
+                            </li>
+
+                            <li><hr class="dropdown-divider"></li>
+
+                            {{-- Ações Judiciais --}}
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('acoes-judiciais.*') ? 'active' : '' }}"
                                    href="{{ route('acoes-judiciais.index') }}">
                                     <i class="bi bi-bank me-1"></i> Ações Judiciais
                                 </a>
                             </li>
+
                         </ul>
                     </li>
 
                     {{-- ---- MENU ADMIN (somente ADMIN vê) ---- --}}
-                    @if(Auth::user()->isAdministrador()) {{-- LINHA ALTERADA AQUI --}}
+                    @if(Auth::user()->isAdministrador())
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle
                                 {{ request()->routeIs('users.*', 'backups.*') ? 'active' : '' }}"

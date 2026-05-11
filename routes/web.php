@@ -16,6 +16,7 @@ use App\Http\Controllers\AlertaController;
 use App\Http\Controllers\AcaoJudicialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\RelatorioInadimplenciaController;
 use App\Models\ParcelaAluguel;
 use App\Models\Contrato;
 use App\Models\Pagamento;
@@ -258,6 +259,9 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('relatorios/imovel', [RelatorioFinanceiroImovelController::class, 'index'])
             ->name('relatorios.imovel');
+
+        Route::get('relatorios/inadimplencia', [RelatorioInadimplenciaController::class, 'index'])
+            ->name('relatorios.inadimplencia');
 
     });
 
