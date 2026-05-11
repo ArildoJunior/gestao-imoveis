@@ -38,7 +38,7 @@
         }
     </style>
 
-    @stack('styles')
+    @stack('styles') {{-- Adicionado para estilos específicos de views --}}
 </head>
 <body>
 
@@ -124,46 +124,39 @@
                             <i class="bi bi-grid me-1"></i> Mais
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark">
-
-                            {{-- Despesas --}}
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('despesas-imovel.*') ? 'active' : '' }}"
                                    href="{{ route('despesas-imovel.index') }}">
                                     <i class="bi bi-receipt me-1"></i> Despesas
                                 </a>
                             </li>
-
-                            <li><hr class="dropdown-divider"></li>
-
-                            {{-- Submenu Relatórios --}}
+                            <li><hr class="dropdown-divider"></li> {{-- Separador --}}
+                            <li class="dropdown-header">Relatórios</li> {{-- Título para o submenu de relatórios --}}
                             <li>
-                                <span class="dropdown-item-text text-secondary small px-3">
-                                    <i class="bi bi-bar-chart-line me-1"></i> Relatórios
-                                </span>
-                            </li>
-                            <li>
-                                <a class="dropdown-item ps-4 {{ request()->routeIs('relatorios.imovel') ? 'active' : '' }}"
+                                <a class="dropdown-item {{ request()->routeIs('relatorios.imovel') ? 'active' : '' }}"
                                    href="{{ route('relatorios.imovel') }}">
-                                    <i class="bi bi-house-gear me-1"></i> Rel. Financeiro por Imóvel
+                                    <i class="bi bi-house-door me-1"></i> Por Imóvel
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item ps-4 {{ request()->routeIs('relatorios.inadimplencia') ? 'active' : '' }}"
+                                <a class="dropdown-item {{ request()->routeIs('relatorios.inadimplencia') ? 'active' : '' }}"
                                    href="{{ route('relatorios.inadimplencia') }}">
-                                    <i class="bi bi-exclamation-triangle me-1"></i> Rel. Inadimplência
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Inadimplência
                                 </a>
                             </li>
-
-                            <li><hr class="dropdown-divider"></li>
-
-                            {{-- Ações Judiciais --}}
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('relatorios.despesas-receitas') ? 'active' : '' }}"
+                                   href="{{ route('relatorios.despesas-receitas') }}">
+                                    <i class="bi bi-bar-chart-line me-1"></i> Despesas x Receitas
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li> {{-- Separador --}}
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('acoes-judiciais.*') ? 'active' : '' }}"
                                    href="{{ route('acoes-judiciais.index') }}">
                                     <i class="bi bi-bank me-1"></i> Ações Judiciais
                                 </a>
                             </li>
-
                         </ul>
                     </li>
 

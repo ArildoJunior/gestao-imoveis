@@ -11,17 +11,17 @@ use App\Http\Controllers\FinanceiroController;
 use App\Http\Controllers\RenegociacaoController;
 use App\Http\Controllers\ReajusteController;
 use App\Http\Controllers\RelatorioFinanceiroImovelController;
+use App\Http\Controllers\RelatorioInadimplenciaController; // Adicionado
+use App\Http\Controllers\RelatorioDespesasReceitasController; // Adicionado
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\AlertaController;
 use App\Http\Controllers\AcaoJudicialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\RelatorioInadimplenciaController;
 use App\Models\ParcelaAluguel;
 use App\Models\Contrato;
 use App\Models\Pagamento;
 use App\Models\Alerta;
-use App\Models\Imovel;
 use Carbon\Carbon;
 
 /*
@@ -251,7 +251,7 @@ Route::middleware(['auth'])->group(function () {
 
     /*
     |----------------------------------------------------------------------
-    | RELATÓRIO FINANCEIRO POR IMÓVEL
+    | RELATÓRIOS
     | FINANCEIRO, SECRETARIA
     |----------------------------------------------------------------------
     */
@@ -262,6 +262,10 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('relatorios/inadimplencia', [RelatorioInadimplenciaController::class, 'index'])
             ->name('relatorios.inadimplencia');
+
+        // NOVA ROTA PARA RELATÓRIO DE DESPESAS X RECEITAS CONSOLIDADO
+        Route::get('relatorios/despesas-receitas', [RelatorioDespesasReceitasController::class, 'index'])
+            ->name('relatorios.despesas-receitas');
 
     });
 
