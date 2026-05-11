@@ -71,4 +71,12 @@ class Pessoa extends Model
     {
         return $this->hasMany(Contrato::class, 'locatario_id');
     }
+
+    /**
+     * Imóveis onde esta pessoa é proprietária.
+     */
+    public function imoveisProprietario()
+    {
+        return $this->hasMany(\App\Models\Imovel::class, 'proprietario_id');
+    }
 }
