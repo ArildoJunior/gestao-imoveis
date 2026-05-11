@@ -8,6 +8,7 @@ use App\Models\DespesaImovel;
 use App\Models\Imovel;
 use App\Models\Pagamento;
 use App\Models\ParcelaAluguel;
+use App\Models\AcaoJudicial;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -62,7 +63,7 @@ class DashboardController extends Controller
 
         // ── Contratos ───────────────────────────────────────────────────
         $qtdContratosAtivos     = Contrato::where('status', 'ATIVO')->count();
-        $qtdContratosEmCobranca = Contrato::where('status', 'EM_COBRANCA_JUDICIAL')->count();
+        $qtdContratosEmCobranca = AcaoJudicial::where('status', 'EM_ANDAMENTO')->count();
 
         // ── Imóveis ─────────────────────────────────────────────────────
         $totalImoveis  = Imovel::where('ativo', true)->count();
