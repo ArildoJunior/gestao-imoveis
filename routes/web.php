@@ -15,10 +15,12 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\AlertaController;
 use App\Http\Controllers\AcaoJudicialController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\DashboardController;
 use App\Models\ParcelaAluguel;
 use App\Models\Contrato;
 use App\Models\Pagamento;
 use App\Models\Alerta;
+use App\Models\Imovel;
 use Carbon\Carbon;
 
 /*
@@ -57,56 +59,8 @@ Route::middleware(['auth'])->group(function () {
     | antes pelo middleware CheckUserStatus).
     |----------------------------------------------------------------------
     */
-    Route::get('/dashboard', function () {
-
-        $hoje          = now()->startOfDay();
-        $limiteAVencer = now()->addDays(7)->endOfDay();
-
-        // Parcelas em atraso
-        $parcelasEmAtraso = ParcelaAluguel::whereIn('status', ['ABERTA', 'EM_ATRASO', 'PAGA_PARCIALMENTE'])
-            ->whereDate('data_vencimento', '<', $hoje)
-            ->get();
-
-        $totalEmAtrasoQtd   = $parcelasEmAtraso->count();
-        $totalEmAtrasoValor = $parcelasEmAtraso->sum(fn($p) => $p->valor_devido - $p->valor_pago);
-
-        // Parcelas a vencer nos próximos 7 dias
-        $parcelasAVencer = ParcelaAluguel::whereIn('status', ['ABERTA', 'EM_ATRASO', 'PAGA_PARCIALMENTE'])
-            ->whereDate('data_vencimento', '>=', $hoje)
-            ->whereDate('data_vencimento', '<=', $limiteAVencer)
-            ->get();
-
-        $totalAVencerQtd   = $parcelasAVencer->count();
-        $totalAVencerValor = $parcelasAVencer->sum(fn($p) => $p->valor_devido - $p->valor_pago);
-
-        // Recebimentos do mês atual
-        $primeiroDiaMes = Carbon::now()->startOfMonth();
-        $ultimoDiaMes   = Carbon::now()->endOfMonth();
-
-        $pagamentosMes    = Pagamento::whereBetween('data_pagamento', [$primeiroDiaMes, $ultimoDiaMes])->get();
-        $qtdPagamentosMes = $pagamentosMes->count();
-        $totalRecebidoMes = $pagamentosMes->sum('valor_pago');
-
-        // Contratos
-        $qtdContratosAtivos     = Contrato::where('status', 'ATIVO')->count();
-        $qtdContratosEmCobranca = Contrato::where('status', 'EM_COBRANCA_JUDICIAL')->count();
-
-        // Alertas pendentes
-        $alertasPendentesQtd = Alerta::where('status', 'PENDENTE')->count();
-
-        return view('dashboard', compact(
-            'totalEmAtrasoQtd',
-            'totalEmAtrasoValor',
-            'totalAVencerQtd',
-            'totalAVencerValor',
-            'qtdPagamentosMes',
-            'totalRecebidoMes',
-            'qtdContratosAtivos',
-            'qtdContratosEmCobranca',
-            'alertasPendentesQtd'
-        ));
-
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->name('dashboard');
 
     /*
     |----------------------------------------------------------------------
