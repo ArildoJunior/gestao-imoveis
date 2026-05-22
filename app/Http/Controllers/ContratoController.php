@@ -22,10 +22,6 @@ class ContratoController extends Controller
         return view('contratos.index', compact('contratos'));
     }
 
-    /**
-     * Opções de dropdown para contratos.
-     * Agora em formato associativo: chave = valor salvo, valor = label amigável.
-     */
     private function getContratoOptions(): array
     {
         return [
@@ -35,11 +31,11 @@ class ContratoController extends Controller
                 'TEMPORADA'   => 'Temporada',
             ],
             'indicesReajuste' => [
-                'IPCA'        => 'IPCA',
-                'IGP-M'       => 'IGP-M',
-                'INPC'        => 'INPC',
-                'NEGOCIADO'   => 'Negociado',
-                'SEM_REAJUSTE'=> 'Sem reajuste',
+                'IPCA'         => 'IPCA',
+                'IGP-M'        => 'IGP-M',
+                'INPC'         => 'INPC',
+                'NEGOCIADO'    => 'Negociado',
+                'SEM_REAJUSTE' => 'Sem reajuste',
             ],
             'statusContrato' => [
                 'ATIVO'                => 'Ativo',
@@ -85,13 +81,13 @@ class ContratoController extends Controller
         $data['possui_juros_moratorios']   = $request->has('possui_juros_moratorios');
 
         if (!$data['possui_caucao']) {
-            $data['meses_caucao']                 = 0;
-            $data['valor_caucao']                 = 0;
-            $data['data_pagamento_total_caucao']  = null;
-            $data['data_devolucao_caucao']        = null;
-            $data['motivo_nao_devolucao_caucao']  = null;
-            $data['caucao_paga_integralmente']    = false;
-            $data['caucao_devolvida']             = false;
+            $data['meses_caucao']                = 0;
+            $data['valor_caucao']                = 0;
+            $data['data_pagamento_total_caucao'] = null;
+            $data['data_devolucao_caucao']       = null;
+            $data['motivo_nao_devolucao_caucao'] = null;
+            $data['caucao_paga_integralmente']   = false;
+            $data['caucao_devolvida']            = false;
         }
 
         if (!$data['possui_multa_atraso']) {
@@ -130,16 +126,14 @@ class ContratoController extends Controller
 
     public function show(Contrato $contrato)
     {
-        $contrato->load(['parcelas', 'acoesJudiciais']); // Carrega as ações judiciais
+        $contrato->load(['parcelas', 'acoesJudiciais']);
 
-        // Situação consolidade da caução
         $totalCaucaoPago = $contrato->parcelas
             ->where('tipo_origem', 'CAUCAO')
             ->sum('valor_pago');
 
         $contrato->total_caucao_pago = $totalCaucaoPago;
 
-        // Situação da TEMPORADA (parcela única + alertas)
         $dadosTemporada = null;
 
         if ($contrato->tipo_contrato === 'TEMPORADA') {
@@ -148,11 +142,11 @@ class ContratoController extends Controller
                 ->first();
 
             if ($parcelaTemporada) {
-                $valorTotal   = (float) $parcelaTemporada->valor_devido;
-                $valorPago    = (float) $parcelaTemporada->valor_pago;
-                $faltaPagar   = max(0, $valorTotal - $valorPago);
-                $hoje         = Carbon::today();
-                $dataEntrada  = $contrato->data_entrada_prevista
+                $valorTotal     = (float) $parcelaTemporada->valor_devido;
+                $valorPago      = (float) $parcelaTemporada->valor_pago;
+                $faltaPagar     = max(0, $valorTotal - $valorPago);
+                $hoje           = Carbon::today();
+                $dataEntrada    = $contrato->data_entrada_prevista
                     ? $contrato->data_entrada_prevista->copy()->startOfDay()
                     : null;
 
@@ -218,13 +212,13 @@ class ContratoController extends Controller
         $data['possui_juros_moratorios']   = $request->has('possui_juros_moratorios');
 
         if (!$data['possui_caucao']) {
-            $data['meses_caucao']                 = 0;
-            $data['valor_caucao']                 = 0;
-            $data['data_pagamento_total_caucao']  = null;
-            $data['data_devolucao_caucao']        = null;
-            $data['motivo_nao_devolucao_caucao']  = null;
-            $data['caucao_paga_integralmente']    = false;
-            $data['caucao_devolvida']             = false;
+            $data['meses_caucao']                = 0;
+            $data['valor_caucao']                = 0;
+            $data['data_pagamento_total_caucao'] = null;
+            $data['data_devolucao_caucao']       = null;
+            $data['motivo_nao_devolucao_caucao'] = null;
+            $data['caucao_paga_integralmente']   = false;
+            $data['caucao_devolvida']            = false;
         }
 
         if (!$data['possui_multa_atraso']) {
@@ -289,11 +283,10 @@ class ContratoController extends Controller
             'multa_meses'       => 'nullable|integer|min:0|max:3',
         ]);
 
-        $tipoEncerramento = $request->input('tipo_encerramento');
-        $dataEncerramento = Carbon::parse($request->input('data_encerramento'))->startOfDay();
-        $motivo           = $request->input('motivo');
-        $multaMeses       = (int) $request->input('multa_meses', 0);
-
+        $tipoEncerramento  = $request->input('tipo_encerramento');
+        $dataEncerramento  = Carbon::parse($request->input('data_encerramento'))->startOfDay();
+        $motivo            = $request->input('motivo');
+        $multaMeses        = (int) $request->input('multa_meses', 0);
         $valorAluguelAtual = (float) $contrato->valor_aluguel_atual;
 
         DB::beginTransaction();
@@ -321,6 +314,26 @@ class ContratoController extends Controller
                     ]);
                 }
             }
+
+            /*
+             * Remove (soft delete) as parcelas futuras de aluguel sem dívida real.
+             * Critérios:
+             *   - tipo_origem ALUGUEL_NORMAL
+             *   - status ABERTA (sem pagamento, sem atraso)
+             *   - vencimento APÓS a data de encerramento
+             *
+             * O SoftDeletes do Laravel preenche deleted_at automaticamente,
+             * fazendo com que essas parcelas sumam de todas as queries normais
+             * do sistema — dashboard, financeiro e tela do contrato incluídos.
+             *
+             * Parcelas EM_ATRASO e PAGA_PARCIALMENTE são mantidas pois
+             * representam dívida real do locatário.
+             */
+            ParcelaAluguel::where('contrato_id', $contrato->id)
+                ->where('tipo_origem', 'ALUGUEL_NORMAL')
+                ->where('status', 'ABERTA')
+                ->whereDate('data_vencimento', '>', $dataEncerramento->toDateString())
+                ->delete();
 
             $contrato->status        = $novoStatus;
             $contrato->data_fim_real = $dataEncerramento;
@@ -350,9 +363,6 @@ class ContratoController extends Controller
             ->with('success', $msg);
     }
 
-    /**
-     * Validação centralizada, usando as chaves das opções.
-     */
     private function validateData(Request $request, array $options): array
     {
         $tiposContratoKeys   = array_keys($options['tiposContrato']);
@@ -371,57 +381,52 @@ class ContratoController extends Controller
 
         if ($tipo === 'TEMPORADA') {
             $rules = array_merge($rules, [
-                'data_inicio'            => 'required|date',
-                'data_fim_prevista'      => 'nullable|date|after_or_equal:data_inicio',
-
-                'data_entrada_prevista'  => 'required|date|after_or_equal:data_inicio',
-                'hora_entrada'           => 'nullable|date_format:H:i',
-                'data_saida_prevista'    => 'required|date|after_or_equal:data_entrada_prevista',
-                'hora_saida'             => 'nullable|date_format:H:i',
-
-                'numero_hospedes'        => 'nullable|integer|min:1',
-                'valor_total_temporada'  => 'required|numeric|min:0.01',
+                'data_inicio'                 => 'required|date',
+                'data_fim_prevista'           => 'nullable|date|after_or_equal:data_inicio',
+                'data_entrada_prevista'       => 'required|date|after_or_equal:data_inicio',
+                'hora_entrada'                => 'nullable|date_format:H:i',
+                'data_saida_prevista'         => 'required|date|after_or_equal:data_entrada_prevista',
+                'hora_saida'                  => 'nullable|date_format:H:i',
+                'numero_hospedes'             => 'nullable|integer|min:1',
+                'valor_total_temporada'       => 'required|numeric|min:0.01',
                 'numero_parcelas_temporada'   => 'nullable|integer|min:1',
                 'prazo_maximo_pagamento_dias' => 'nullable|integer|min:0',
-                'regras_especiais'       => 'nullable|string',
-                'restricoes'             => 'nullable|string',
-
-                'valor_aluguel_base'         => 'nullable|numeric|min:0',
-                'valor_aluguel_atual'        => 'nullable|numeric|min:0',
-                'dia_vencimento'             => 'nullable|integer|min:1|max:31',
-                'indice_reajuste'            => 'nullable|string',
-                'mes_reajuste'               => 'nullable|integer|min:1|max:12',
-                'percentual_reajuste_padrao' => 'nullable|numeric|min:0|max:100',
-                'carencia_dias'              => 'nullable|integer|min:0',
-                'data_fim_real'              => 'nullable|date|after_or_equal:data_inicio',
+                'regras_especiais'            => 'nullable|string',
+                'restricoes'                  => 'nullable|string',
+                'valor_aluguel_base'          => 'nullable|numeric|min:0',
+                'valor_aluguel_atual'         => 'nullable|numeric|min:0',
+                'dia_vencimento'              => 'nullable|integer|min:1|max:31',
+                'indice_reajuste'             => 'nullable|string',
+                'mes_reajuste'                => 'nullable|integer|min:1|max:12',
+                'percentual_reajuste_padrao'  => 'nullable|numeric|min:0|max:100',
+                'carencia_dias'               => 'nullable|integer|min:0',
+                'data_fim_real'               => 'nullable|date|after_or_equal:data_inicio',
             ]);
         } else {
             $rules = array_merge($rules, [
-                'data_inicio'                => 'required|date',
-                'data_fim_prevista'          => 'nullable|date|after_or_equal:data_inicio',
-                'data_fim_real'              => 'nullable|date|after_or_equal:data_inicio',
-                'valor_aluguel_base'         => 'required|numeric|min:0',
-                'valor_aluguel_atual'        => 'required|numeric|min:0',
-                'dia_vencimento'             => 'required|integer|min:1|max:31',
-                'indice_reajuste'            => ['required', Rule::in($indicesReajusteKeys)],
-                'mes_reajuste'               => 'nullable|integer|min:1|max:12',
-                'percentual_reajuste_padrao' => 'nullable|numeric|min:0|max:100',
-                'carencia_dias'              => 'nullable|integer|min:0',
-
-                'data_entrada_prevista'      => 'nullable|date',
-                'hora_entrada'               => 'nullable|date_format:H:i',
-                'data_saida_prevista'        => 'nullable|date',
-                'hora_saida'                 => 'nullable|date_format:H:i',
-                'numero_hospedes'            => 'nullable|integer|min:1',
-                'valor_total_temporada'      => 'nullable|numeric|min:0',
-                'numero_parcelas_temporada'  => 'nullable|integer|min:1',
-                'prazo_maximo_pagamento_dias'=> 'nullable|integer|min:0',
-                'regras_especiais'           => 'nullable|string',
-                'restricoes'                 => 'nullable|string',
+                'data_inicio'                 => 'required|date',
+                'data_fim_prevista'           => 'nullable|date|after_or_equal:data_inicio',
+                'data_fim_real'               => 'nullable|date|after_or_equal:data_inicio',
+                'valor_aluguel_base'          => 'required|numeric|min:0',
+                'valor_aluguel_atual'         => 'required|numeric|min:0',
+                'dia_vencimento'              => 'required|integer|min:1|max:31',
+                'indice_reajuste'             => ['required', Rule::in($indicesReajusteKeys)],
+                'mes_reajuste'                => 'nullable|integer|min:1|max:12',
+                'percentual_reajuste_padrao'  => 'nullable|numeric|min:0|max:100',
+                'carencia_dias'               => 'nullable|integer|min:0',
+                'data_entrada_prevista'       => 'nullable|date',
+                'hora_entrada'                => 'nullable|date_format:H:i',
+                'data_saida_prevista'         => 'nullable|date',
+                'hora_saida'                  => 'nullable|date_format:H:i',
+                'numero_hospedes'             => 'nullable|integer|min:1',
+                'valor_total_temporada'       => 'nullable|numeric|min:0',
+                'numero_parcelas_temporada'   => 'nullable|integer|min:1',
+                'prazo_maximo_pagamento_dias' => 'nullable|integer|min:0',
+                'regras_especiais'            => 'nullable|string',
+                'restricoes'                  => 'nullable|string',
             ]);
         }
 
-        // Caução
         if ($request->has('possui_caucao')) {
             $rules['meses_caucao']                = 'required|integer|min:0|max:3';
             $rules['valor_caucao']                = 'required|numeric|min:0';
@@ -432,18 +437,16 @@ class ContratoController extends Controller
             $rules['meses_caucao']                = 'nullable|integer|min:0|max:3';
             $rules['valor_caucao']                = 'nullable|numeric|min:0';
             $rules['data_pagamento_total_caucao'] = 'nullable|date';
-            $rules['data_devolucao_caucao']       = 'nullable|date';
+            $rules['data_devolucao_caucao']        = 'nullable|date';
             $rules['motivo_nao_devolucao_caucao'] = 'nullable|string|max:500';
         }
 
-        // Multa
         if ($request->has('possui_multa_atraso')) {
             $rules['percentual_multa'] = 'required|numeric|min:0|max:100';
         } else {
             $rules['percentual_multa'] = 'nullable|numeric|min:0|max:100';
         }
 
-        // Juros
         if ($request->has('possui_juros_moratorios')) {
             $rules['percentual_juros_mensal'] = 'required|numeric|min:0|max:100';
         } else {
@@ -473,7 +476,6 @@ class ContratoController extends Controller
         return "CT-{$year}-" . str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
 
-    // Métodos de devolução de caução (já existentes)
     public function devolucaoCaucaoForm(Contrato $contrato)
     {
         if (!$contrato->possui_caucao || !$contrato->caucao_paga_integralmente || $contrato->caucao_devolvida) {
