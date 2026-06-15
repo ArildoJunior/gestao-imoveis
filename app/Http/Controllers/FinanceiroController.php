@@ -3,68 +3,72 @@
 namespace App\Http\Controllers;
 
 use App\Models\ParcelaAluguel;
-use App\Models\Imovel;
 use App\Models\Contrato;
+use App\Models\Imovel;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Para pegar o ID do usuário logado
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth; // Adicione esta linha
 
 class FinanceiroController extends Controller
 {
-    /**
-     * Tela de controle financeiro (parcelas de aluguel).
-     */
     public function index(Request $request)
     {
+        // ... (código existente do método index) ...
+
+        $imoveis = Imovel::orderBy('descricao')->get();
+        $contratos = Contrato::orderBy('codigo')->get();
+
+        $statusPossiveis = [
+            'ABERTA',
+            'PAGA',
+            'PAGA_PARCIALMENTE',
+            'EM_ATRASO',
+            'RENEGOCIADA',
+            'CANCELADA',
+            'EM_ACORDO',
+            'JURIDICO',
+            'PERDIDA',
+        ];
+
         $query = ParcelaAluguel::with(['contrato.imovel', 'contrato.locatario'])
-            ->orderBy('data_vencimento');
+            ->orderBy('data_vencimento', 'asc')
+            ->orderBy('competencia', 'asc');
 
         // Filtros
         if ($request->filled('imovel_id')) {
-            $imovelId = $request->input('imovel_id');
-            $query->whereHas('contrato', function ($q) use ($imovelId) {
-                $q->where('imovel_id', $imovelId);
+            $query->whereHas('contrato', function ($q) use ($request) {
+                $q->where('imovel_id', $request->imovel_id);
             });
         }
 
         if ($request->filled('contrato_id')) {
-            $query->where('contrato_id', $request->input('contrato_id'));
+            $query->where('contrato_id', $request->contrato_id);
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+            $query->where('status', $request->status);
         }
 
         if ($request->filled('competencia')) {
-            // formato esperado: YYYY-MM
-            $query->where('competencia', $request->input('competencia'));
+            $query->where('competencia', $request->competencia);
         }
 
-        // Período por data de vencimento
         if ($request->filled('vencimento_de')) {
-            $query->whereDate('data_vencimento', '>=', $request->input('vencimento_de'));
+            $query->whereDate('data_vencimento', '>=', $request->vencimento_de);
         }
 
         if ($request->filled('vencimento_ate')) {
-            $query->whereDate('data_vencimento', '<=', $request->input('vencimento_ate'));
+            $query->whereDate('data_vencimento', '<=', $request->vencimento_ate);
         }
 
-        $parcelas = $query->paginate(15)->withQueryString();
+        $parcelas = $query->paginate(10);
 
-        // Dados para filtros
-        $imoveis   = Imovel::orderBy('descricao')->get();
-        $contratos = Contrato::orderBy('codigo')->get();
-
-        // Status possíveis (incluindo os novos)
-        $statusPossiveis = [
-            'ABERTA'             => 'Aberta',
-            'EM_ATRASO'          => 'Em atraso',
-            'PAGA_PARCIALMENTE'  => 'Paga parcialmente',
-            'PAGA'               => 'Paga',
-            'EM_ACORDO'          => 'Em Acordo',
-            'CANCELADA'          => 'Cancelada',
-            'PERDIDA'            => 'Perdida',
-            'JURIDICO'           => 'Jurídico',
-        ];
+        // Aplica multa e juros em memória para exibição
+        $parcelas->each(function ($parcela) {
+            if ($parcela->status === 'ABERTA' || $parcela->status === 'EM_ATRASO' || $parcela->status === 'PAGA_PARCIALMENTE') {
+                $parcela->aplicarMultaEJurosSeAtraso();
+            }
+        });
 
         return view('financeiro.index', compact(
             'parcelas',
@@ -74,57 +78,107 @@ class FinanceiroController extends Controller
         ));
     }
 
-    /**
-     * Marca uma parcela como "Em Acordo".
-     */
-    public function marcarComoAcordo(Request $request, ParcelaAluguel $parcela)
+    public function marcarComoAcordo(ParcelaAluguel $parcela)
     {
-        $parcela->update([
-            'status' => 'EM_ACORDO',
-            // Você pode adicionar campos para registrar detalhes do acordo aqui
-            // 'observacoes_acordo' => $request->input('observacoes_acordo'),
-            // 'data_acordo' => now(),
-        ]);
+        // Autoriza a ação usando a política
+        $this->authorize('updateStatus', $parcela);
 
-        return redirect()->back()->with('success', 'Parcela marcada como "Em Acordo" com sucesso!');
+        if ($parcela->status === 'PAGA' || $parcela->status === 'CANCELADA') {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível marcar uma parcela paga ou cancelada como "Em Acordo".');
+        }
+
+        $parcela->status = 'EM_ACORDO';
+        $parcela->save();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Parcela marcada como "Em Acordo" com sucesso!');
+    }
+
+    public function cancelarParcela(ParcelaAluguel $parcela)
+    {
+        // Autoriza a ação usando a política
+        $this->authorize('updateStatus', $parcela);
+
+        if ($parcela->status === 'PAGA') {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível cancelar uma parcela que já foi paga.');
+        }
+
+        $parcela->status = 'CANCELADA';
+        $parcela->save();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Parcela cancelada com sucesso!');
+    }
+
+    public function marcarComoPerdida(ParcelaAluguel $parcela)
+    {
+        // Autoriza a ação usando a política
+        $this->authorize('updateStatus', $parcela);
+
+        if ($parcela->status === 'PAGA' || $parcela->status === 'CANCELADA') {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível marcar uma parcela paga ou cancelada como "Perdida".');
+        }
+
+        $parcela->status = 'PERDIDA';
+        $parcela->save();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Parcela marcada como "Perdida" com sucesso!');
+    }
+
+    public function enviarParaJuridico(ParcelaAluguel $parcela)
+    {
+        // Autoriza a ação usando a política
+        $this->authorize('updateStatus', $parcela);
+
+        if ($parcela->status === 'PAGA' || $parcela->status === 'CANCELADA') {
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível enviar uma parcela paga ou cancelada para o jurídico.');
+        }
+
+        $parcela->status = 'JURIDICO';
+        $parcela->save();
+
+        return redirect()
+            ->back()
+            ->with('success', 'Parcela enviada para o jurídico com sucesso!');
     }
 
     /**
-     * Cancela uma parcela.
+     * Remove a ParcelaAluguel especificada do armazenamento (soft delete).
+     *
+     * @param  \App\Models\ParcelaAluguel  $parcela
+     * @return \Illuminate\Http\Response
      */
-    public function cancelarParcela(Request $request, ParcelaAluguel $parcela)
+    public function destroy(ParcelaAluguel $parcela)
     {
-        $parcela->update([
-            'status' => 'CANCELADA',
-            // 'motivo_cancelamento' => $request->input('motivo_cancelamento'),
-        ]);
+        // Autoriza a ação usando a política ParcelaAluguelPolicy
+        $this->authorize('delete', $parcela);
 
-        return redirect()->back()->with('success', 'Parcela cancelada com sucesso!');
-    }
+        // Verifica se a parcela possui pagamentos associados
+        if ($parcela->pagamentos()->exists()) {
+            // Se houver pagamentos, não permite a exclusão direta para evitar perda de histórico financeiro.
+            // Em vez disso, sugere o cancelamento ou a marcação como perdida.
+            return redirect()
+                ->back()
+                ->with('error', 'Não é possível excluir uma parcela que possui pagamentos registrados. Considere cancelá-la ou marcá-la como "Perdida" se necessário.');
+        }
 
-    /**
-     * Marca uma parcela como "Perdida".
-     */
-    public function marcarComoPerdida(Request $request, ParcelaAluguel $parcela)
-    {
-        $parcela->update([
-            'status' => 'PERDIDA',
-            // 'motivo_perda' => $request->input('motivo_perda'),
-        ]);
+        // Realiza o soft delete da parcela
+        $parcela->delete();
 
-        return redirect()->back()->with('success', 'Parcela marcada como "Perdida" com sucesso!');
-    }
-
-    /**
-     * Envia uma parcela para o setor Jurídico.
-     */
-    public function enviarParaJuridico(Request $request, ParcelaAluguel $parcela)
-    {
-        $parcela->update([
-            'status' => 'JURIDICO',
-            // 'data_envio_juridico' => now(),
-        ]);
-
-        return redirect()->back()->with('success', 'Parcela enviada para o Jurídico com sucesso!');
+        return redirect()
+            ->route('financeiro.index')
+            ->with('success', 'Parcela excluída com sucesso (soft delete)!');
     }
 }

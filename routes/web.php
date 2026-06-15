@@ -11,8 +11,8 @@ use App\Http\Controllers\FinanceiroController;
 use App\Http\Controllers\RenegociacaoController;
 use App\Http\Controllers\ReajusteController;
 use App\Http\Controllers\RelatorioFinanceiroImovelController;
-use App\Http\Controllers\RelatorioInadimplenciaController; // Adicionado
-use App\Http\Controllers\RelatorioDespesasReceitasController; // Adicionado
+use App\Http\Controllers\RelatorioInadimplenciaController; 
+use App\Http\Controllers\RelatorioDespesasReceitasController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\AlertaController;
 use App\Http\Controllers\AcaoJudicialController;
@@ -202,6 +202,9 @@ Route::middleware(['auth'])->group(function () {
             ->name('financeiro.parcelas.perdida');
         Route::post('financeiro/parcelas/{parcela}/juridico', [FinanceiroController::class, 'enviarParaJuridico'])
             ->name('financeiro.parcelas.juridico');
+        // NOVA ROTA PARA EXCLUSÃO DE PARCELAS
+        Route::delete('financeiro/parcelas/{parcela}', [FinanceiroController::class, 'destroy'])
+            ->name('financeiro.parcelas.destroy');
 
     });
 

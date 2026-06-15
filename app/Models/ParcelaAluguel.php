@@ -49,6 +49,23 @@ class ParcelaAluguel extends Model
 
     protected $dates = ['deleted_at'];
 
+    /**
+     * O método "booted" é chamado depois que o modelo foi inicializado.
+     * Usamos ele para registrar eventos do modelo.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (ParcelaAluguel $parcela) {
+            // Quando uma parcela é soft-deletada, soft-deleta seus pagamentos.
+            // Se a parcela estiver sendo forceDeleted, forceDelete os pagamentos.
+            if ($parcela->isForceDeleting()) {
+                $parcela->pagamentos()->forceDelete();
+            } else {
+                $parcela->pagamentos()->delete();
+            }
+        });
+    }
+
     // ----------------------- Relacionamentos -----------------------
 
     public function contrato()

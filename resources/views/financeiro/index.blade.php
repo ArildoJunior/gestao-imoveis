@@ -272,6 +272,22 @@
                                                     </form>
                                                 </li>
                                             @endif
+
+                                            {{-- NOVO: Botão de Excluir Parcela --}}
+                                            @can('delete', $parcela)
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form action="{{ route('financeiro.parcelas.destroy', $parcela->id) }}"
+                                                          method="POST"
+                                                          onsubmit="return confirm('Tem certeza que deseja EXCLUIR esta parcela? Esta ação é irreversível e removerá também todos os pagamentos associados.');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="dropdown-item text-danger">
+                                                            Excluir Parcela
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            @endcan
                                         </ul>
                                     </div>
                                 </td>
