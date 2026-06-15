@@ -40,8 +40,8 @@
                     <div class="col-md-4">
                         <label for="status" class="form-label">Status</label>
                         <select name="status" id="status" class="form-select">
-                            <option value="">Todos os Status</option>
-                            @foreach($statusPossiveis as $key => $label)
+                            <option value="0">Todos os Status</option> {{-- Valor '0' para "Todos" --}}
+                            @foreach($statusPossiveis as $key => $label) {{-- Iterando sobre o array associativo --}}
                                 <option value="{{ $key }}"
                                     {{ request('status') == $key ? 'selected' : '' }}>
                                     {{ $label }}
@@ -193,7 +193,7 @@
                                     <span class="badge bg-{{ $badge }}">
                                         {{ $parcela->status }}
                                     </span>
-                                </td>
+                               </td>
                                 <td>{{ $origemLabel }}</td>
                                 <td>R$ {{ number_format($parcela->valor_original, 2, ',', '.') }}</td>
                                 {{-- Devido agora usa valor_devido_atual --}}
@@ -389,3 +389,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+
+

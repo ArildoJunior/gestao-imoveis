@@ -7,27 +7,27 @@ use App\Models\Contrato;
 use App\Models\Imovel;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth; // Adicione esta linha
+use Illuminate\Support\Facades\Auth;
 
 class FinanceiroController extends Controller
 {
     public function index(Request $request)
     {
-        // ... (código existente do método index) ...
-
         $imoveis = Imovel::orderBy('descricao')->get();
         $contratos = Contrato::orderBy('codigo')->get();
 
+        // Definindo os status possíveis para o filtro na view
+        // É uma boa prática ter esses valores em um Enum ou constante para evitar duplicação
         $statusPossiveis = [
-            'ABERTA',
-            'PAGA',
-            'PAGA_PARCIALMENTE',
-            'EM_ATRASO',
-            'RENEGOCIADA',
-            'CANCELADA',
-            'EM_ACORDO',
-            'JURIDICO',
-            'PERDIDA',
+            'ABERTA'            => 'Aberta',
+            'PAGA'              => 'Paga',
+            'PAGA_PARCIALMENTE' => 'Paga Parcialmente',
+            'EM_ATRASO'         => 'Em Atraso',
+            'RENEGOCIADA'       => 'Renegociada',
+            'CANCELADA'         => 'Cancelada',
+            'EM_ACORDO'         => 'Em Acordo',
+            'JURIDICO'          => 'Jurídico',
+            'PERDIDA'           => 'Perdida',
         ];
 
         $query = ParcelaAluguel::with(['contrato.imovel', 'contrato.locatario'])
@@ -45,7 +45,9 @@ class FinanceiroController extends Controller
             $query->where('contrato_id', $request->contrato_id);
         }
 
-        if ($request->filled('status')) {
+        // CORREÇÃO AQUI: Adicionado && $request->status !== '0'
+        // E também ajustei o array $statusPossiveis para ter chaves e valores
+        if ($request->filled('status') && $request->status !== '0') {
             $query->where('status', $request->status);
         }
 
@@ -80,7 +82,6 @@ class FinanceiroController extends Controller
 
     public function marcarComoAcordo(ParcelaAluguel $parcela)
     {
-        // Autoriza a ação usando a política
         $this->authorize('updateStatus', $parcela);
 
         if ($parcela->status === 'PAGA' || $parcela->status === 'CANCELADA') {
@@ -99,7 +100,6 @@ class FinanceiroController extends Controller
 
     public function cancelarParcela(ParcelaAluguel $parcela)
     {
-        // Autoriza a ação usando a política
         $this->authorize('updateStatus', $parcela);
 
         if ($parcela->status === 'PAGA') {
@@ -118,7 +118,6 @@ class FinanceiroController extends Controller
 
     public function marcarComoPerdida(ParcelaAluguel $parcela)
     {
-        // Autoriza a ação usando a política
         $this->authorize('updateStatus', $parcela);
 
         if ($parcela->status === 'PAGA' || $parcela->status === 'CANCELADA') {
@@ -137,7 +136,6 @@ class FinanceiroController extends Controller
 
     public function enviarParaJuridico(ParcelaAluguel $parcela)
     {
-        // Autoriza a ação usando a política
         $this->authorize('updateStatus', $parcela);
 
         if ($parcela->status === 'PAGA' || $parcela->status === 'CANCELADA') {
@@ -154,27 +152,16 @@ class FinanceiroController extends Controller
             ->with('success', 'Parcela enviada para o jurídico com sucesso!');
     }
 
-    /**
-     * Remove a ParcelaAluguel especificada do armazenamento (soft delete).
-     *
-     * @param  \App\Models\ParcelaAluguel  $parcela
-     * @return \Illuminate\Http\Response
-     */
     public function destroy(ParcelaAluguel $parcela)
     {
-        // Autoriza a ação usando a política ParcelaAluguelPolicy
         $this->authorize('delete', $parcela);
 
-        // Verifica se a parcela possui pagamentos associados
         if ($parcela->pagamentos()->exists()) {
-            // Se houver pagamentos, não permite a exclusão direta para evitar perda de histórico financeiro.
-            // Em vez disso, sugere o cancelamento ou a marcação como perdida.
             return redirect()
                 ->back()
                 ->with('error', 'Não é possível excluir uma parcela que possui pagamentos registrados. Considere cancelá-la ou marcá-la como "Perdida" se necessário.');
         }
 
-        // Realiza o soft delete da parcela
         $parcela->delete();
 
         return redirect()
